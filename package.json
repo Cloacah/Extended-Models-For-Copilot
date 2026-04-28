@@ -1,0 +1,330 @@
+{
+	"name": "extended-models-for-copilot",
+	"displayName": "Extended Models for Copilot",
+	"description": "Use OpenAI-compatible custom models such as DeepSeek v4 and GLM 5.1 in VS Code Copilot Chat.",
+	"version": "0.1.0",
+	"publisher": "local",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/Cloacah/Extended-Models-For-Copilot"
+	},
+	"engines": {
+		"vscode": "^1.104.0"
+	},
+	"categories": [
+		"AI",
+		"Chat"
+	],
+	"keywords": [
+		"copilot",
+		"chat",
+		"language-model",
+		"openai-compatible",
+		"deepseek",
+		"glm",
+		"zhipu"
+	],
+	"activationEvents": [
+		"onStartupFinished"
+	],
+	"enabledApiProposals": [
+		"chatProvider",
+		"languageModelDataPart",
+		"languageModelThinkingPart"
+	],
+	"main": "./out/extension.js",
+	"contributes": {
+		"languageModelChatProviders": [
+			{
+				"vendor": "extendedModels",
+				"displayName": "Extended Models",
+				"managementCommand": "extendedModels.manage"
+			}
+		],
+		"commands": [
+			{
+				"command": "extendedModels.manage",
+				"title": "Open Configuration",
+				"category": "Extended Models"
+			},
+			{
+				"command": "extendedModels.setApiKey",
+				"title": "Set Default API Key",
+				"category": "Extended Models"
+			},
+			{
+				"command": "extendedModels.setProviderApiKey",
+				"title": "Set Provider API Key",
+				"category": "Extended Models"
+			},
+			{
+				"command": "extendedModels.clearApiKey",
+				"title": "Clear API Key",
+				"category": "Extended Models"
+			},
+			{
+				"command": "extendedModels.showOutput",
+				"title": "Show Diagnostics Output",
+				"category": "Extended Models"
+			},
+			{
+				"command": "extendedModels.exportModels",
+				"title": "Export Model Configuration",
+				"category": "Extended Models"
+			},
+			{
+				"command": "extendedModels.importModels",
+				"title": "Import Model Configuration",
+				"category": "Extended Models"
+			}
+		],
+		"configuration": {
+			"title": "Extended Models for Copilot",
+			"properties": {
+				"extendedModels.includeBuiltInPresets": {
+					"type": "boolean",
+					"default": true,
+					"description": "Show built-in DeepSeek v4 and GLM 5.1 presets in the Copilot model picker."
+				},
+				"extendedModels.defaultBaseUrl": {
+					"type": "string",
+					"default": "",
+					"description": "Default OpenAI-compatible base URL used when a model does not define baseUrl."
+				},
+				"extendedModels.models": {
+					"type": "array",
+					"default": [],
+					"description": "Custom OpenAI-compatible chat models.",
+					"items": {
+						"type": "object",
+						"required": [
+							"id",
+							"provider"
+						],
+						"properties": {
+							"id": {
+								"type": "string",
+								"description": "Provider model ID, for example deepseek-v4-pro or glm-5.1."
+							},
+							"displayName": {
+								"type": "string",
+								"description": "Name shown in the Copilot model picker."
+							},
+							"configId": {
+								"type": "string",
+								"description": "Optional suffix to distinguish multiple configurations for the same model."
+							},
+							"provider": {
+								"type": "string",
+								"examples": [
+									"deepseek",
+									"zhipu",
+									"kimi",
+									"qwen",
+									"my-provider"
+								],
+								"description": "Provider key used for grouping API keys, for example deepseek or zhipu."
+							},
+							"providerDisplayName": {
+								"type": "string",
+								"description": "Human-readable provider name shown in the model picker."
+							},
+							"category": {
+								"type": "string",
+								"description": "Model group shown as detail text, for example Coder, Reasoning, or Vision."
+							},
+							"baseUrl": {
+								"type": "string",
+								"description": "OpenAI-compatible base URL without /chat/completions."
+							},
+							"family": {
+								"type": "string",
+								"default": "oai-compatible",
+								"description": "Model family hint for VS Code prompts."
+							},
+							"contextLength": {
+								"type": "number",
+								"default": 128000,
+								"minimum": 1000,
+								"description": "Maximum context window in tokens."
+							},
+							"maxOutputTokens": {
+								"type": "number",
+								"default": 4096,
+								"minimum": 1,
+								"description": "Maximum output tokens."
+							},
+							"vision": {
+								"type": "boolean",
+								"default": false,
+								"description": "Whether the model accepts image input."
+							},
+							"toolCalling": {
+								"type": "boolean",
+								"default": true,
+								"description": "Whether the model supports OpenAI function tool calls."
+							},
+							"temperature": {
+								"type": [
+									"number",
+									"null"
+								],
+								"minimum": 0,
+								"maximum": 2,
+								"description": "Sampling temperature. Use null to omit it."
+							},
+							"topP": {
+								"type": [
+									"number",
+									"null"
+								],
+								"minimum": 0,
+								"maximum": 1,
+								"description": "Top-p sampling value. Use null to omit it."
+							},
+							"maxCompletionTokens": {
+								"type": "number",
+								"minimum": 1,
+								"description": "OpenAI max_completion_tokens for reasoning models."
+							},
+							"reasoningEffort": {
+								"type": "string",
+								"enum": [
+									"minimal",
+									"low",
+									"medium",
+									"high",
+									"xhigh",
+									"max"
+								],
+								"description": "Reasoning effort value sent as reasoning_effort."
+							},
+							"thinking": {
+								"type": "object",
+								"description": "Provider-specific thinking configuration.",
+								"properties": {
+									"type": {
+										"type": "string",
+										"enum": [
+											"enabled",
+											"disabled"
+										]
+									}
+								}
+							},
+							"headers": {
+								"type": "object",
+								"additionalProperties": {
+									"type": "string"
+								},
+								"description": "Additional HTTP headers. Sensitive values are redacted from logs."
+							},
+							"extraBody": {
+								"type": "object",
+								"description": "Extra JSON fields merged into the request body after standard fields."
+							},
+							"parameterHints": {
+								"type": "object",
+								"description": "UI metadata for common parameter ranges and recommended values."
+							},
+							"documentationUrl": {
+								"type": "string",
+								"description": "Provider documentation URL for this model."
+							},
+							"includeReasoningInRequest": {
+								"type": "boolean",
+								"default": false,
+								"description": "Include assistant reasoning_content in subsequent requests when available."
+							},
+							"editTools": {
+								"type": "array",
+								"items": {
+									"type": "string",
+									"enum": [
+										"find-replace",
+										"multi-find-replace",
+										"apply-patch",
+										"code-rewrite"
+									]
+								},
+								"description": "Preferred VS Code edit tools exposed to the model."
+							}
+						}
+					}
+				},
+				"extendedModels.retry": {
+					"type": "object",
+					"default": {
+						"enabled": true,
+						"maxAttempts": 3,
+						"baseDelayMs": 1000,
+						"statusCodes": []
+					},
+					"properties": {
+						"enabled": {
+							"type": "boolean",
+							"default": true
+						},
+						"maxAttempts": {
+							"type": "number",
+							"default": 3,
+							"minimum": 1
+						},
+						"baseDelayMs": {
+							"type": "number",
+							"default": 1000,
+							"minimum": 1
+						},
+						"statusCodes": {
+							"type": "array",
+							"items": {
+								"type": "number"
+							}
+						}
+					},
+					"description": "Retry settings for retryable provider and network errors."
+				},
+				"extendedModels.requestTimeoutMs": {
+					"type": "number",
+					"default": 120000,
+					"minimum": 1000,
+					"description": "Request timeout in milliseconds."
+				},
+				"extendedModels.logLevel": {
+					"type": "string",
+					"default": "info",
+					"enum": [
+						"off",
+						"error",
+						"warn",
+						"info",
+						"debug"
+					],
+					"description": "Output channel log level."
+				}
+			}
+		}
+	},
+	"scripts": {
+		"compile": "tsc -p ./",
+		"watch": "tsc -watch -p ./",
+		"lint": "eslint .",
+		"test": "npm run compile && node --test \"out/test/**/*.test.js\"",
+		"vscode:prepublish": "npm run compile",
+		"package": "vsce package",
+		"package:vsix": "npm run package",
+		"build:vsix": "npm run package",
+		"install:vscode": "code --install-extension extended-models-for-copilot-0.1.0.vsix --force",
+		"publish:marketplace": "vsce publish"
+	},
+	"devDependencies": {
+		"@eslint/js": "latest",
+		"@types/node": "latest",
+		"@types/vscode": "^1.104.0",
+		"@vscode/vsce": "latest",
+		"eslint": "latest",
+		"typescript": "latest",
+		"typescript-eslint": "latest"
+	}
+}

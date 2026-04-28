@@ -1,0 +1,11 @@
+src/**
+test/**
+node_modules/**
+**/*.map
+out/test/**
+.tools/**
+tsconfig.json
+eslint.config.mjs
+.gitignore
+.vscode/**
+.cursor/**
