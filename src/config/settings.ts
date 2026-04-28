@@ -17,6 +17,7 @@ export function getSettings(): ExtensionSettings {
 	const retry = normalizeRetry(config.get<Partial<RetrySettings>>("retry", DEFAULT_RETRY));
 	const requestTimeoutMs = config.get<number>("requestTimeoutMs", 120000);
 	const logLevel = config.get<LogLevel>("logLevel", "info");
+	const uiLanguage = config.get<"zh" | "en">("uiLanguage", "zh");
 	const models = includeBuiltInPresets ? mergeModels([...BUILT_IN_PRESETS], customModels) : customModels;
 
 	return {
@@ -25,7 +26,8 @@ export function getSettings(): ExtensionSettings {
 		models,
 		retry,
 		requestTimeoutMs,
-		logLevel
+		logLevel,
+		uiLanguage
 	};
 }
 

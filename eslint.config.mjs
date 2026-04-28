@@ -16,6 +16,10 @@ export default tseslint.config(
 			"src/**/*.ts"
 		],
 		languageOptions: {
+			globals: {
+				console: "readonly",
+				process: "readonly"
+			},
 			parserOptions: {
 				project: "./tsconfig.json"
 			}
@@ -30,6 +34,17 @@ export default tseslint.config(
 					"varsIgnorePattern": "^_"
 				}
 			]
+		}
+	},
+	{
+		files: [
+			"scripts/**/*.mjs"
+		],
+		languageOptions: {
+			globals: {
+				console: "readonly",
+				process: "readonly"
+			}
 		}
 	}
 );

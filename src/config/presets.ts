@@ -6,7 +6,7 @@ export const DEFAULT_MAX_OUTPUT_TOKENS = 4096;
 const EDIT_TOOLS = ["apply-patch", "multi-find-replace", "find-replace"];
 
 const COMMON_HINTS: ModelParameterHints = {
-	temperature: { min: 0, max: 2, step: 0.1, recommended: 0.6 },
+	temperature: { min: 0, max: 2, step: 0.1, recommended: 1 },
 	topP: { min: 0, max: 1, step: 0.05, recommended: 1 },
 	maxOutputTokens: { min: 1, max: 128000, step: 1024, recommended: 8192 },
 	thinking: { options: ["enabled", "disabled"], recommended: "disabled" }
@@ -21,10 +21,10 @@ const DEEPSEEK_HINTS: ModelParameterHints = {
 
 const KIMI_K26_HINTS: ModelParameterHints = {
 	...COMMON_HINTS,
-	temperature: { min: 0.6, max: 1, step: 0.4, recommended: 0.6 },
+	temperature: { min: 0.6, max: 1, step: 0.4, recommended: 1 },
 	topP: { min: 0.95, max: 0.95, step: 0, recommended: 0.95 },
 	maxOutputTokens: { min: 1, max: 32768, step: 1024, recommended: 8192 },
-	thinking: { options: ["enabled", "disabled"], recommended: "disabled" }
+	thinking: { options: ["enabled", "disabled"], recommended: "enabled" }
 };
 
 const QWEN_HINTS: ModelParameterHints = {
@@ -67,7 +67,7 @@ export const PROVIDER_CATALOG: readonly ProviderSeed[] = [
 		hints: DEEPSEEK_HINTS,
 		models: [
 			{ id: "deepseek-v4-pro", displayName: "DeepSeek v4 Pro", category: "Reasoning / Agent", contextLength: 1000000, maxOutputTokens: 8192, temperature: 1, topP: 1, reasoningEffort: "high", thinking: "enabled" },
-			{ id: "deepseek-v4-flash", displayName: "DeepSeek v4 Flash", category: "Fast / General", contextLength: 1000000, maxOutputTokens: 8192, temperature: 0, topP: 1, reasoningEffort: "medium", thinking: "disabled" }
+			{ id: "deepseek-v4-flash", displayName: "DeepSeek v4 Flash", category: "Fast / General", contextLength: 1000000, maxOutputTokens: 8192, temperature: 1, topP: 1, reasoningEffort: "high", thinking: "enabled" }
 		]
 	},
 	{
@@ -92,8 +92,8 @@ export const PROVIDER_CATALOG: readonly ProviderSeed[] = [
 		documentationUrl: "https://platform.kimi.ai/docs/models",
 		hints: COMMON_HINTS,
 		models: [
-			{ id: "kimi-k2.6", displayName: "Kimi K2.6", category: "Latest / Multimodal", contextLength: 256000, maxOutputTokens: 32768, vision: true, temperature: 0.6, topP: 0.95, thinking: "disabled", hints: KIMI_K26_HINTS },
-			{ id: "kimi-k2.5", displayName: "Kimi K2.5", category: "Multimodal", contextLength: 256000, maxOutputTokens: 32768, vision: true, temperature: 0.6, topP: 1, thinking: "disabled", hints: KIMI_K26_HINTS },
+			{ id: "kimi-k2.6", displayName: "Kimi K2.6", category: "Latest / Multimodal", contextLength: 256000, maxOutputTokens: 32768, vision: true, temperature: 1, topP: 0.95, thinking: "enabled", hints: KIMI_K26_HINTS },
+			{ id: "kimi-k2.5", displayName: "Kimi K2.5", category: "Multimodal", contextLength: 256000, maxOutputTokens: 32768, vision: true, temperature: 1, topP: 1, thinking: "enabled", hints: KIMI_K26_HINTS },
 			{ id: "kimi-k2-0905-preview", category: "K2 Deprecated May 2026", contextLength: 256000, maxOutputTokens: 8192, temperature: 0.6, topP: 1 },
 			{ id: "kimi-k2-0711-preview", category: "K2 Deprecated May 2026", contextLength: 128000, maxOutputTokens: 8192, temperature: 0.6, topP: 1 },
 			{ id: "kimi-k2-turbo-preview", category: "K2 Deprecated May 2026", contextLength: 256000, maxOutputTokens: 8192, temperature: 0.6, topP: 1 },
@@ -122,7 +122,8 @@ export const PROVIDER_CATALOG: readonly ProviderSeed[] = [
 			...ids("Reasoning / QwQ", ["qwq-plus", "qwq-plus-latest"], 128000, 8192, { thinking: "enabled" }),
 			...ids("Math", ["qwen-math-plus", "qwen-math-plus-latest", "qwen-math-turbo", "qwen-math-turbo-latest"], 128000, 8192),
 			...ids("Open Source / Qwen3.5", ["qwen3.5-397b-a17b", "qwen3.5-120b-a10b", "qwen3.5-27b", "qwen3.5-35b-a3b"], 128000, 8192),
-			...ids("Open Source / Qwen3", ["qwen3-next-80b-a3b-thinking", "qwen3-next-80b-a3b-instruct", "qwen3-235b-a22b-thinking-2507", "qwen3-235b-a22b-instruct-2507", "qwen3-30b-a3b-thinking-2507", "qwen3-30b-a3b-instruct-2507", "qwen3-235b-a22b", "qwen3-32b", "qwen3-30b-a3b", "qwen3-14b", "qwen3-8b", "qwen3-4b", "qwen3-1.7b", "qwen3-0.6b"], 128000, 8192),
+			...ids("Open Source / Qwen3 Thinking", ["qwen3-next-80b-a3b-thinking", "qwen3-235b-a22b-thinking-2507", "qwen3-30b-a3b-thinking-2507"], 128000, 8192, { thinking: "enabled" }),
+			...ids("Open Source / Qwen3", ["qwen3-next-80b-a3b-instruct", "qwen3-235b-a22b-instruct-2507", "qwen3-30b-a3b-instruct-2507", "qwen3-235b-a22b", "qwen3-32b", "qwen3-30b-a3b", "qwen3-14b", "qwen3-8b", "qwen3-4b", "qwen3-1.7b", "qwen3-0.6b"], 128000, 8192),
 			...ids("Open Source / Qwen2.5", ["qwen2.5-14b-instruct-1m", "qwen2.5-7b-instruct-1m"], 1000000, 8192),
 			...ids("Open Source / Qwen2.5", ["qwen2.5-72b-instruct", "qwen2.5-32b-instruct", "qwen2.5-14b-instruct", "qwen2.5-7b-instruct", "qwen2.5-3b-instruct", "qwen2.5-1.5b-instruct", "qwen2.5-0.5b-instruct"], 128000, 8192)
 		]

@@ -302,6 +302,15 @@
 						"debug"
 					],
 					"description": "Output channel log level."
+				},
+				"extendedModels.uiLanguage": {
+					"type": "string",
+					"default": "zh",
+					"enum": [
+						"zh",
+						"en"
+					],
+					"description": "Language used by the visual configuration page."
 				}
 			}
 		}
@@ -315,6 +324,7 @@
 		"package": "vsce package",
 		"package:vsix": "npm run package",
 		"build:vsix": "npm run package",
+		"release:vsix": "node scripts/release-vsix.mjs",
 		"install:vscode": "code --install-extension extended-models-for-copilot-0.1.0.vsix --force",
 		"publish:marketplace": "vsce publish"
 	},

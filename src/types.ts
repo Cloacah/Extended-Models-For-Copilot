@@ -65,6 +65,7 @@ export interface ExtensionSettings {
 	retry: RetrySettings;
 	requestTimeoutMs: number;
 	logLevel: LogLevel;
+	uiLanguage: "zh" | "en";
 }
 
 export interface ProviderErrorDetails {

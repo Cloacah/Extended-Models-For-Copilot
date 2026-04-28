@@ -1,10 +1,14 @@
 # Extended Models for Copilot 🚀
 
+**语言 / Language： [中文](#中文) | [English](#english)**
+
+## 中文
+
 把 DeepSeek、智谱 GLM、Kimi、Qwen 以及任意 OpenAI-compatible 模型接入 VS Code / GitHub Copilot Chat 的模型选择器。
 
 本扩展基于 VS Code `LanguageModelChatProvider` API 工作。它让 Copilot Chat、Edit、Agent 等聊天场景可以选择你自己的模型，但不会替代 Copilot 原生内联补全、仓库索引、意图识别等后台服务。
 
-## ✨ 功能概览
+### ✨ 功能概览
 
 - 🤖 接入 OpenAI-compatible `/chat/completions` 模型。
 - 🧩 支持 Copilot Chat / Edit / Agent 模式中的模型选择器。
@@ -16,7 +20,7 @@
 - ⚙️ 提供可视化设置页，可用下拉框和输入框调整常用参数。
 - 🧱 保留自定义供应商和自定义模型。
 
-## 📦 内置供应商
+### 📦 内置供应商
 
 扩展内置以下官方 OpenAI-compatible 供应商预设，并会在重启 VS Code 或重载扩展后刷新内置目录：
 
@@ -27,7 +31,7 @@
 
 你在本地保存过的模型参数会作为 override 合并到最新预设上。也就是说，供应商新增模型时你能看到新模型；你改过的温度、输出长度、thinking 等参数不会被覆盖。只有当供应商模型 ID 被替换或删除时，旧模型才会作为你的本地自定义配置继续保留。
 
-## 🚀 快速开始
+### 🚀 快速开始
 
 1. 安装扩展，要求 VS Code `1.104.0` 或更高版本。
 2. 打开命令面板，运行 `Extended Models: Open Configuration`。
@@ -40,7 +44,7 @@
 
 > 注意：如果模型没有出现，请用 `--enable-proposed-api local.extended-models-for-copilot` 启动 VS Code。当前 VS Code 模型供应商 API 仍属于 proposed API。
 
-## 🔐 API Key 安全说明
+### 🔐 API Key 安全说明
 
 API Key 的处理规则如下：
 
@@ -55,7 +59,7 @@ API Key 的处理规则如下：
 
 建议不要把 API Key 写进模型的 `headers` 或 `extraBody`。如果误写，扩展会尽量过滤，但最安全的方式始终是使用 `Extended Models: Set Provider API Key`。
 
-## ⚙️ 可视化设置
+### ⚙️ 可视化设置
 
 运行 `Extended Models: Open Configuration` 可以打开图形化设置页：
 
@@ -73,7 +77,7 @@ API Key 的处理规则如下：
 
 点击 `Save Local Model Override` 会把当前参数保存到 `extendedModels.models`。API Key 不会保存在这里。
 
-## 🧩 添加自定义供应商和模型
+### 🧩 添加自定义供应商和模型
 
 在设置页的 `Add Custom Provider / Model` 区域填写：
 
@@ -108,7 +112,7 @@ API Key 的处理规则如下：
 }
 ```
 
-## 🧪 本地开发
+### 🧪 本地开发
 
 安装依赖：
 
@@ -123,18 +127,25 @@ npm run compile
 npm run lint
 npm test
 npm run package:vsix
+npm run release:vsix
 ```
 
 `npm run package:vsix` 会自动编译并生成 `.vsix` 安装包。
 
-## 🛠️ 本地安装 VSIX
+`npm run release:vsix` 会自动打包 VSIX，并用 GitHub CLI 上传到当前版本对应的 GitHub Release，例如 `v0.1.0`。它会读取 `CHANGELOG.md` 中对应版本的说明作为 Release Notes。使用前请先安装并登录 GitHub CLI：
+
+```bash
+gh auth login
+```
+
+### 🛠️ 本地安装 VSIX
 
 ```bash
 code --install-extension extended-models-for-copilot-0.1.0.vsix --force
 code . --enable-proposed-api local.extended-models-for-copilot
 ```
 
-## 📤 发布到 VS Code Marketplace
+### 📤 发布到 VS Code Marketplace
 
 发布前需要：
 
@@ -148,6 +159,135 @@ code . --enable-proposed-api local.extended-models-for-copilot
 npm run publish:marketplace
 ```
 
-## 📄 License
+### 📄 License
+
+MIT License. See [LICENSE](LICENSE).
+
+## English
+
+Connect DeepSeek, Zhipu GLM, Kimi, Qwen, and any OpenAI-compatible model to the VS Code / GitHub Copilot Chat model picker.
+
+This extension uses VS Code's `LanguageModelChatProvider` API. It supports Copilot Chat, Edit, and Agent chat flows that can select models from the VS Code model picker. It does not replace Copilot native inline completions, repository indexing, intent detection, or other Copilot service features.
+
+### ✨ Features
+
+- 🤖 OpenAI-compatible `/chat/completions` integration.
+- 🧩 Works with Copilot Chat, Edit, and Agent model picker flows.
+- 🛠️ OpenAI function calling for Agent tool use.
+- 🖼️ Vision input for models marked as `vision: true`.
+- 🧠 Thinking/reasoning streams from `reasoning_content`, `reasoning`, `thinking`, and XML `<think>` blocks.
+- 🔐 API keys are stored only in local VS Code `SecretStorage`.
+- 🧯 Retry and timeout handling for common provider/network errors.
+- ⚙️ Visual configuration page with dropdowns, tooltips, and common model parameters.
+- 🧱 Custom providers and custom models remain supported.
+
+### 📦 Built-In Providers
+
+Built-in presets are refreshed when VS Code or the extension reloads:
+
+- DeepSeek: `deepseek-v4-pro`, `deepseek-v4-flash`
+- Zhipu / Z.AI: `glm-5.1`
+- Kimi / Moonshot: `kimi-k2.6`, `kimi-k2.5`, K2 preview/thinking models, Moonshot V1 text and vision models
+- Qwen / DashScope: commercial, coder, QwQ, math, and open-source Qwen families
+
+Local model overrides are merged on top of the refreshed presets. Your local temperature, output length, thinking, and tool settings are preserved unless you remove them.
+
+### 🚀 Quick Start
+
+1. Install the extension in VS Code `1.104.0` or newer.
+2. Run `Extended Models: Open Configuration`.
+3. Pick a provider/model, adjust parameters, and click `Save Local Model Override`.
+4. Run `Extended Models: Set Provider API Key`.
+5. Choose `deepseek`, `zhipu`, `kimi`, `qwen`, or your custom provider.
+6. Enter the API key. A `✓` before the provider means a local key exists.
+7. Open Copilot Chat, open the model picker, go to `Manage Models`, and enable models from `Extended Models`.
+8. Select the model in chat and start using it.
+
+> If models do not appear, start VS Code with `--enable-proposed-api local.extended-models-for-copilot`.
+
+### 🔐 API Key Safety
+
+- API keys are stored only through VS Code `SecretStorage`.
+- They are not written to `settings.json`.
+- They are not exported.
+- They are not logged.
+- They are not saved by `Save Local Model Override`.
+- Sensitive fields are filtered from settings and exports, including `Authorization`, `apiKey`, `api_key`, `token`, `secret`, `password`, and `cookie`.
+
+Use `Extended Models: Set Provider API Key` instead of putting secrets in `headers` or `extraBody`.
+
+### ⚙️ Visual Configuration
+
+Run `Extended Models: Open Configuration` to edit:
+
+- Provider and model
+- Base URL
+- Display name
+- Temperature
+- Top P
+- Max output tokens
+- Thinking mode
+- Reasoning effort
+- Vision input
+- Tool calling / Agent capability
+
+The page supports Chinese and English, and each option includes a hover tooltip.
+
+### 🧩 Custom Providers and Models
+
+Use the `Add Custom Provider / Model` section in the configuration page, or add models to `settings.json`:
+
+```json
+{
+	"extendedModels.models": [
+		{
+			"id": "my-model",
+			"displayName": "My Model",
+			"provider": "my-provider",
+			"baseUrl": "https://example.com/v1",
+			"contextLength": 128000,
+			"maxOutputTokens": 4096,
+			"toolCalling": true,
+			"vision": false
+		}
+	]
+}
+```
+
+Then run `Extended Models: Set Provider API Key` and choose your provider.
+
+### 🧪 Development
+
+```bash
+npm install
+npm run compile
+npm run lint
+npm test
+npm run package:vsix
+npm run release:vsix
+```
+
+`npm run release:vsix` packages the extension and uploads the VSIX to the GitHub Release for the current version tag, using `CHANGELOG.md` as release notes. It requires GitHub CLI:
+
+```bash
+gh auth login
+```
+
+### 🛠️ Local VSIX Install
+
+```bash
+code --install-extension extended-models-for-copilot-0.1.0.vsix --force
+code . --enable-proposed-api local.extended-models-for-copilot
+```
+
+### 📤 VS Code Marketplace
+
+Marketplace publishing is optional and currently not required. It needs a real Marketplace publisher ID and a VSCE token:
+
+```bash
+npm run publish:marketplace
+```
+
+### 📄 License
 
 MIT License. See [LICENSE](LICENSE).
