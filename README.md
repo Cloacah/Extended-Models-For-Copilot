@@ -138,6 +138,15 @@ npm run release:vsix
 gh auth login
 ```
 
+**若刚登录成功，过一会又提示未登录 / `The token in keyring is invalid` / HTTP 401：**
+
+1. **先查环境变量（最常见）**  
+   CI 工具、`.bashrc`、PowerShell Profile、系统「环境变量」、Cursor 的终端集成设置里，可能设置了 **`GITHUB_TOKEN` 或 `GH_TOKEN`**。若值为过期或错误的 PAT，`gh` 会**优先用它**而不是 keyring，表现为「时而能用时而 401」。  
+   在出问题的终端执行：`echo "$GITHUB_TOKEN"`、`echo "$GH_TOKEN"`（PowerShell：`echo $env:GITHUB_TOKEN`）。若非空且你已改用浏览器登录，请从各处配置里**删除或改正**该变量，新开终端再执行 `gh auth status`。
+2. **刷新 OAuth 会话**：`gh auth refresh -h github.com`
+3. **清理 Windows 凭据管理器**中旧的 `git:https://github.com` / `github.com` 条目后，再执行 `gh auth login`。
+4. **需要长期稳定自动化**时：在 GitHub 创建**不过期或长有效期**的 PAT，仅用 `GH_TOKEN`（或 `echo pat | gh auth login --with-token`），并**不要**再在别处保留一份冲突的旧 `GITHUB_TOKEN`。
+
 ### 🛠️ 本地安装 VSIX
 
 ```bash
@@ -272,6 +281,13 @@ npm run release:vsix
 ```bash
 gh auth login
 ```
+
+**If login works briefly then fails (`token in keyring is invalid`, HTTP 401):**
+
+1. **Check env vars first (most common):** A stale **`GITHUB_TOKEN` or `GH_TOKEN`** (shell profile, system env, CI, Cursor terminal env) takes precedence over the keyring and breaks API calls. Run `echo $GITHUB_TOKEN` / `echo $GH_TOKEN` (PowerShell: `$env:GH_TOKEN`). Remove or fix it everywhere, open a new terminal, then `gh auth status`.
+2. **Refresh OAuth:** `gh auth refresh -h github.com`
+3. **Windows Credential Manager:** delete old `github.com` / `git:https://github.com` entries, then `gh auth login` again.
+4. **Stable automation:** use a long-lived PAT via `GH_TOKEN` only, and remove conflicting copies of the token from other env sources.
 
 ### 🛠️ Local VSIX Install
 

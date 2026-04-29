@@ -3,7 +3,8 @@
 	"displayName": "Extended Models for Copilot",
 	"description": "Use OpenAI-compatible custom models such as DeepSeek v4 and GLM 5.1 in VS Code Copilot Chat.",
 	"version": "0.1.0",
-	"publisher": "local",
+	"publisher": "Cloacah",
+	"icon": "icon.png",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
