@@ -9,6 +9,7 @@ export interface RetrySettings {
 
 export interface ThinkingSettings {
 	type?: "enabled" | "disabled";
+	keep?: "all";
 }
 
 export interface NumberParameterHint {
@@ -44,6 +45,7 @@ export interface ModelConfig {
 	maxOutputTokens: number;
 	maxCompletionTokens?: number;
 	vision: boolean;
+	visionProxyModelId?: string | null;
 	toolCalling: boolean;
 	temperature?: number | null;
 	topP?: number | null;
@@ -58,14 +60,33 @@ export interface ModelConfig {
 	builtIn?: boolean;
 }
 
+export interface VisionProxySettings {
+	enabled: boolean;
+	defaultModelId: string;
+	prompt: string;
+}
+
+export interface PromptPresetSettings {
+	selectedId: string;
+}
+
 export interface ExtensionSettings {
 	includeBuiltInPresets: boolean;
 	defaultBaseUrl: string;
 	models: ModelConfig[];
+	visionProxy: VisionProxySettings;
+	promptPresets: PromptPresetSettings;
 	retry: RetrySettings;
 	requestTimeoutMs: number;
 	logLevel: LogLevel;
 	uiLanguage: "zh" | "en";
+}
+
+export interface ModelCatalogState {
+	models: ModelConfig[];
+	refreshedProviders: string[];
+	updatedAt: number;
+	errors?: Record<string, string>;
 }
 
 export interface ProviderErrorDetails {
@@ -113,7 +134,7 @@ export interface ChatCompletionRequestBody {
 	stream: true;
 	stream_options?: { include_usage: boolean };
 	tools?: OpenAIToolDefinition[];
-	tool_choice?: "auto" | { type: "function"; function: { name: string } };
+	tool_choice?: "auto" | "required" | { type: "function"; function: { name: string } };
 	temperature?: number;
 	top_p?: number;
 	max_tokens?: number;
@@ -123,7 +144,21 @@ export interface ChatCompletionRequestBody {
 	[key: string]: unknown;
 }
 
+export interface ChatCompletionUsage {
+	prompt_tokens?: number;
+	completion_tokens?: number;
+	total_tokens?: number;
+	prompt_cache_hit_tokens?: number;
+	prompt_cache_miss_tokens?: number;
+	prompt_tokens_details?: {
+		cached_tokens?: number;
+		[key: string]: unknown;
+	};
+	[key: string]: unknown;
+}
+
 export type StreamEvent =
 	| { type: "text"; text: string }
 	| { type: "thinking"; text: string; id?: string }
-	| { type: "tool_call"; id: string; name: string; input: Record<string, unknown> };
+	| { type: "tool_call"; id: string; name: string; input: Record<string, unknown> }
+	| { type: "usage"; usage: ChatCompletionUsage };

@@ -1,5 +1,5 @@
 import * as vscode from "vscode";
-import type { ExtensionSettings, LogLevel, ModelConfig, RetrySettings } from "../types";
+import type { ExtensionSettings, LogLevel, ModelCatalogState, ModelConfig, PromptPresetSettings, RetrySettings, VisionProxySettings } from "../types";
 import { BUILT_IN_PRESETS, DEFAULT_CONTEXT_LENGTH, DEFAULT_MAX_OUTPUT_TOKENS } from "./presets";
 
 const DEFAULT_RETRY: RetrySettings = {
@@ -9,21 +9,37 @@ const DEFAULT_RETRY: RetrySettings = {
 	statusCodes: []
 };
 
-export function getSettings(): ExtensionSettings {
+const DEFAULT_VISION_PROXY: VisionProxySettings = {
+	enabled: true,
+	defaultModelId: "",
+	prompt: "Describe the visual contents of each image in detail for a coding assistant. Include visible text, UI state, diagrams, errors, layout, colors, and any details needed to answer the user's request. Be factual and do not solve the task yourself."
+};
+
+const DEFAULT_PROMPT_PRESETS: PromptPresetSettings = {
+	selectedId: ""
+};
+
+export function getSettings(catalogState?: ModelCatalogState): ExtensionSettings {
 	const config = vscode.workspace.getConfiguration("extendedModels");
 	const includeBuiltInPresets = config.get<boolean>("includeBuiltInPresets", true);
 	const defaultBaseUrl = config.get<string>("defaultBaseUrl", "");
 	const customModels = normalizeModels(config.get<unknown[]>("models", []), defaultBaseUrl);
+	const visionProxy = normalizeVisionProxy(config.get<Partial<VisionProxySettings>>("visionProxy", DEFAULT_VISION_PROXY));
+	const promptPresets = normalizePromptPresets(config.get<Partial<PromptPresetSettings>>("promptPresets", DEFAULT_PROMPT_PRESETS));
 	const retry = normalizeRetry(config.get<Partial<RetrySettings>>("retry", DEFAULT_RETRY));
-	const requestTimeoutMs = config.get<number>("requestTimeoutMs", 120000);
+	const requestTimeoutMs = Math.max(1000, config.get<number>("requestTimeoutMs", 120000));
 	const logLevel = config.get<LogLevel>("logLevel", "info");
 	const uiLanguage = config.get<"zh" | "en">("uiLanguage", "zh");
-	const models = includeBuiltInPresets ? mergeModels([...BUILT_IN_PRESETS], customModels) : customModels;
+	const catalogModels = catalogState ? normalizeModelConfigs(catalogState.models, defaultBaseUrl) : [];
+	const builtIns = includeBuiltInPresets ? applyCatalogState([...BUILT_IN_PRESETS], catalogModels, catalogState) : [];
+	const models = includeBuiltInPresets ? mergeModels(builtIns, customModels) : customModels;
 
 	return {
 		includeBuiltInPresets,
 		defaultBaseUrl,
 		models,
+		visionProxy,
+		promptPresets,
 		retry,
 		requestTimeoutMs,
 		logLevel,
@@ -69,10 +85,13 @@ export function validateModelConfig(model: ModelConfig): string | undefined {
 	if (model.contextLength <= model.maxOutputTokens) {
 		return `contextLength for model ${model.id} must be greater than maxOutputTokens.`;
 	}
+	if (model.maxCompletionTokens !== undefined && model.contextLength <= model.maxCompletionTokens) {
+		return `contextLength for model ${model.id} must be greater than maxCompletionTokens.`;
+	}
 	return undefined;
 }
 
-function mergeModels(builtIn: ModelConfig[], custom: ModelConfig[]): ModelConfig[] {
+export function mergeModels(builtIn: ModelConfig[], custom: ModelConfig[]): ModelConfig[] {
 	const out = new Map<string, ModelConfig>();
 	for (const model of builtIn) {
 		out.set(getRuntimeModelId(model), model);
@@ -83,6 +102,27 @@ function mergeModels(builtIn: ModelConfig[], custom: ModelConfig[]): ModelConfig
 		out.set(key, base ? { ...base, ...model, builtIn: base.builtIn } : model);
 	}
 	return Array.from(out.values());
+}
+
+function applyCatalogState(builtIn: ModelConfig[], catalogModels: ModelConfig[], catalogState?: ModelCatalogState): ModelConfig[] {
+	if (!catalogState || catalogModels.length === 0) {
+		return builtIn;
+	}
+
+	const refreshedProviders = new Set(catalogState.refreshedProviders.map((provider) => provider.trim().toLowerCase()).filter(Boolean));
+	if (refreshedProviders.size === 0) {
+		return builtIn;
+	}
+
+	const retainedBuiltIns = builtIn.filter((model) => !refreshedProviders.has(model.provider.trim().toLowerCase()));
+	return [
+		...retainedBuiltIns,
+		...catalogModels
+	];
+}
+
+function normalizeModelConfigs(models: readonly ModelConfig[] | undefined, defaultBaseUrl: string): ModelConfig[] {
+	return normalizeModels(models as unknown[] | undefined, defaultBaseUrl);
 }
 
 function normalizeRetry(input: Partial<RetrySettings> | undefined): RetrySettings {
@@ -124,6 +164,7 @@ function normalizeModels(input: unknown[] | undefined, defaultBaseUrl: string): 
 			maxOutputTokens: asPositiveNumber(record.maxOutputTokens ?? record.max_tokens, DEFAULT_MAX_OUTPUT_TOKENS),
 			maxCompletionTokens: asOptionalPositiveNumber(record.maxCompletionTokens ?? record.max_completion_tokens),
 			vision: asBoolean(record.vision, false),
+			visionProxyModelId: asOptionalNullableString(record.visionProxyModelId ?? record.vision_proxy_model_id),
 			toolCalling: asBoolean(record.toolCalling, true),
 			temperature: asNullableNumber(record.temperature),
 			topP: asNullableNumber(record.topP ?? record.top_p),
@@ -138,6 +179,20 @@ function normalizeModels(input: unknown[] | undefined, defaultBaseUrl: string): 
 		});
 	}
 	return models;
+}
+
+function normalizeVisionProxy(input: Partial<VisionProxySettings> | undefined): VisionProxySettings {
+	return {
+		enabled: input?.enabled ?? DEFAULT_VISION_PROXY.enabled,
+		defaultModelId: asString(input?.defaultModelId) || DEFAULT_VISION_PROXY.defaultModelId,
+		prompt: asString(input?.prompt) || DEFAULT_VISION_PROXY.prompt
+	};
+}
+
+function normalizePromptPresets(input: Partial<PromptPresetSettings> | undefined): PromptPresetSettings {
+	return {
+		selectedId: asString(input?.selectedId) || DEFAULT_PROMPT_PRESETS.selectedId
+	};
 }
 
 function normalizeThinking(value: unknown): { type?: "enabled" | "disabled" } | undefined {
@@ -198,6 +253,14 @@ function normalizeStringArray(value: unknown): string[] {
 
 function asString(value: unknown): string {
 	return typeof value === "string" ? value.trim() : "";
+}
+
+function asOptionalNullableString(value: unknown): string | null | undefined {
+	if (value === null) {
+		return null;
+	}
+	const text = asString(value);
+	return text ? text : undefined;
 }
 
 function asBoolean(value: unknown, fallback: boolean): boolean {

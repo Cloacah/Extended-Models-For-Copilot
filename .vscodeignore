@@ -9,3 +9,4 @@ eslint.config.mjs
 .gitignore
 .vscode/**
 .cursor/**
+copilot_all_prompts_*.json

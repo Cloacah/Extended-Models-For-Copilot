@@ -23,14 +23,30 @@ export async function sendChatCompletion(options: SendChatCompletionOptions): Pr
 	const url = `${options.model.baseUrl?.replace(/\/+$/, "")}/chat/completions`;
 	await executeWithRetry(async () => {
 		const controller = new AbortController();
-		let timedOut = false;
-		const timeout = setTimeout(() => {
-			timedOut = true;
+		let timedOutPhase: "connect" | "idle" | undefined;
+		let timeout: ReturnType<typeof setTimeout> | undefined;
+		let rejectTimeout: ((error: Error) => void) | undefined;
+		const timeoutPromise = new Promise<never>((_resolve, reject) => {
+			rejectTimeout = reject;
+		});
+		const resetTimeout = (phase: "connect" | "idle") => {
+			if (timeout) {
+				clearTimeout(timeout);
+			}
+			timedOutPhase = undefined;
+			timeout = setTimeout(() => {
+				timedOutPhase = phase;
+				controller.abort();
+				rejectTimeout?.(new Error("timeout"));
+			}, options.timeoutMs);
+		};
+		const abortForCancellation = () => {
+			timedOutPhase = undefined;
 			controller.abort();
-		}, options.timeoutMs);
+		};
+		resetTimeout("connect");
 		const cancellationDisposable = options.cancellation?.onCancellationRequested?.(() => {
-			timedOut = false;
-			controller.abort();
+			abortForCancellation();
 		});
 
 		try {
@@ -38,12 +54,15 @@ export async function sendChatCompletion(options: SendChatCompletionOptions): Pr
 				throw new ProviderError("The model request was cancelled.", { code: "CANCELLED", retryable: false });
 			}
 
-			const response = await fetch(url, {
-				method: "POST",
-				headers: options.headers,
-				body: JSON.stringify(options.body),
-				signal: controller.signal
-			});
+			const response = await Promise.race([
+				fetch(url, {
+					method: "POST",
+					headers: options.headers,
+					body: JSON.stringify(options.body),
+					signal: controller.signal
+				}),
+				timeoutPromise
+			]);
 
 			if (!response.ok) {
 				const text = await safeReadText(response);
@@ -53,11 +72,16 @@ export async function sendChatCompletion(options: SendChatCompletionOptions): Pr
 				throw new ProviderError("Provider returned an empty response body.", { code: "EMPTY_BODY", retryable: true, url });
 			}
 
+			resetTimeout("idle");
 			const parser = new OpenAIStreamParser();
-			await parser.parse(response.body, options.onEvent, options.cancellation);
+			await Promise.race([
+				parser.parse(response.body, options.onEvent, options.cancellation, () => resetTimeout("idle")),
+				timeoutPromise
+			]);
 		} catch (error) {
-			if (timedOut) {
-				throw new ProviderError(`Provider request timed out after ${options.timeoutMs}ms.`, {
+			if (timedOutPhase) {
+				const label = timedOutPhase === "connect" ? "before the provider responded" : "without provider stream activity";
+				throw new ProviderError(`Provider request timed out after ${options.timeoutMs}ms ${label}.`, {
 					code: "TIMEOUT",
 					url,
 					retryable: true
@@ -72,7 +96,9 @@ export async function sendChatCompletion(options: SendChatCompletionOptions): Pr
 			}
 			throw normalizeUnknownError(error);
 		} finally {
-			clearTimeout(timeout);
+			if (timeout) {
+				clearTimeout(timeout);
+			}
 			cancellationDisposable?.dispose();
 		}
 	}, options.retry, options.onRetry);

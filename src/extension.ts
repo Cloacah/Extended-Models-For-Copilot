@@ -4,38 +4,71 @@ import { Logger } from "./logger";
 import { clearApiKey, promptForApiKey, providerSecretKey, setDefaultApiKey } from "./secrets";
 import { ConfigPanel } from "./ui/configPanel";
 import { ExtendedModelsProvider } from "./provider";
+import { clearProviderModelCache, readModelCatalogState, refreshConfiguredProviderModels } from "./openaiCompat/models";
+import { openGlobalPromptPresetFolder, selectPromptPreset } from "./promptPresets";
 
 let logger: Logger | undefined;
 
 export function activate(context: vscode.ExtensionContext): void {
 	logger = new Logger();
-	logger.setLevel(getSettings().logLevel);
+	let catalogState = readModelCatalogState(context);
+	logger.setLevel(getSettings(catalogState).logLevel);
 
-	const provider = new ExtendedModelsProvider(context.secrets, logger);
+	const provider = new ExtendedModelsProvider(context, context.secrets, logger, () => getSettings(catalogState));
+	const refreshModels = async (providers?: readonly string[], showResult = false): Promise<void> => {
+		const result = await refreshConfiguredProviderModels(context, providers, logger);
+		catalogState = readModelCatalogState(context);
+		provider.refreshModels();
+		if (showResult) {
+			const refreshed = result.refreshedProviders.length;
+			const failed = result.skippedProviders.length;
+			vscode.window.showInformationMessage(`Copilot Bro refreshed ${refreshed} provider(s), ${failed} failed/skipped.`);
+		}
+	};
 	context.subscriptions.push(
 		logger,
+		provider,
 		vscode.lm.registerLanguageModelChatProvider("extendedModels", provider),
 		vscode.commands.registerCommand("extendedModels.manage", () => ConfigPanel.open(context)),
+		vscode.commands.registerCommand("extendedModels.openModelSettings", () => ConfigPanel.open(context)),
 		vscode.commands.registerCommand("extendedModels.setApiKey", () => setDefaultApiKey(context.secrets)),
-		vscode.commands.registerCommand("extendedModels.setProviderApiKey", () => setProviderApiKey(context)),
-		vscode.commands.registerCommand("extendedModels.clearApiKey", () => clearSelectedApiKey(context)),
+		vscode.commands.registerCommand("extendedModels.setProviderApiKey", async () => {
+			const changedProvider = await setProviderApiKey(context);
+			if (changedProvider) {
+				await refreshModels([changedProvider], true);
+			}
+		}),
+		vscode.commands.registerCommand("extendedModels.clearApiKey", async () => {
+			await clearSelectedApiKey(context);
+			catalogState = readModelCatalogState(context);
+			provider.refreshModels();
+		}),
 		vscode.commands.registerCommand("extendedModels.showOutput", () => logger?.show()),
 		vscode.commands.registerCommand("extendedModels.exportModels", () => exportModels()),
 		vscode.commands.registerCommand("extendedModels.importModels", () => importModels()),
+		vscode.commands.registerCommand("extendedModels.refreshProviderModels", () => refreshModels(undefined, true)),
+		vscode.commands.registerCommand("extendedModels.selectPromptPreset", () => selectPromptPreset(context)),
+		vscode.commands.registerCommand("extendedModels.openPromptPresetFolder", () => openGlobalPromptPresetFolder(context)),
 		vscode.workspace.onDidChangeConfiguration((event) => {
 			if (event.affectsConfiguration("extendedModels.logLevel")) {
-				logger?.setLevel(getSettings().logLevel);
+				logger?.setLevel(getSettings(catalogState).logLevel);
+			}
+			if (event.affectsConfiguration("extendedModels")) {
+				provider.refreshModels();
 			}
 		})
 	);
 
 	logger.info("extension.activated");
+	void refreshModels(undefined).catch((error) => logger?.warn("models.refresh.startup.failed", {
+		message: error instanceof Error ? error.message : String(error)
+	}));
 }
 
 async function exportModels(): Promise<void> {
 	const uri = await vscode.window.showSaveDialog({
-		title: "Export Extended Models Configuration",
-		defaultUri: vscode.Uri.file("extended-models.json"),
+		title: "Export Copilot Bro Model Configuration",
+		defaultUri: vscode.Uri.file("copilot-bro-models.json"),
 		filters: {
 			"JSON": [
 				"json"
@@ -50,12 +83,12 @@ async function exportModels(): Promise<void> {
 	const models = config.get<unknown[]>("models", []);
 	const content = JSON.stringify({ models: models.map((model) => removeSensitiveFields(model)) }, null, 2);
 	await vscode.workspace.fs.writeFile(uri, new TextEncoder().encode(content));
-	vscode.window.showInformationMessage("Extended Models configuration exported.");
+	vscode.window.showInformationMessage("Copilot Bro configuration exported.");
 }
 
 async function importModels(): Promise<void> {
 	const uris = await vscode.window.showOpenDialog({
-		title: "Import Extended Models Configuration",
+		title: "Import Copilot Bro Model Configuration",
 		canSelectMany: false,
 		filters: {
 			"JSON": [
@@ -77,7 +110,7 @@ async function importModels(): Promise<void> {
 	}
 
 	await vscode.workspace.getConfiguration("extendedModels").update("models", models, vscode.ConfigurationTarget.Global);
-	vscode.window.showInformationMessage("Extended Models configuration imported.");
+	vscode.window.showInformationMessage("Copilot Bro configuration imported.");
 }
 
 function removeSensitiveFields(value: unknown): unknown {
@@ -113,23 +146,24 @@ export function deactivate(): void {
 	logger = undefined;
 }
 
-async function setProviderApiKey(context: vscode.ExtensionContext): Promise<void> {
+async function setProviderApiKey(context: vscode.ExtensionContext): Promise<string | undefined> {
 	const providers = getProviderChoices();
 	const provider = await vscode.window.showQuickPick(providers, {
-		title: "Extended Models: Select Provider",
+		title: "Copilot Bro: Select Provider",
 		placeHolder: "Choose the provider whose API key should be updated"
 	});
 	if (!provider) {
-		return;
+		return undefined;
 	}
 
 	const existing = await context.secrets.get(providerSecretKey(provider));
 	const saved = await promptForApiKey(context.secrets, provider, existing);
 	if (saved === "") {
-		vscode.window.showInformationMessage(`Extended Models API key for ${provider} cleared.`);
+		vscode.window.showInformationMessage(`Copilot Bro API key for ${provider} cleared.`);
 	} else if (saved) {
-		vscode.window.showInformationMessage(`Extended Models API key for ${provider} saved.`);
+		vscode.window.showInformationMessage(`Copilot Bro API key for ${provider} saved.`);
 	}
+	return saved === undefined ? undefined : provider;
 }
 
 async function clearSelectedApiKey(context: vscode.ExtensionContext): Promise<void> {
@@ -138,13 +172,16 @@ async function clearSelectedApiKey(context: vscode.ExtensionContext): Promise<vo
 		...getProviderChoices()
 	];
 	const selected = await vscode.window.showQuickPick(choices, {
-		title: "Extended Models: Clear API Key"
+		title: "Copilot Bro: Clear API Key"
 	});
 	if (!selected) {
 		return;
 	}
 	await clearApiKey(context.secrets, selected === "Default" ? undefined : selected);
-	vscode.window.showInformationMessage(`Extended Models API key for ${selected} cleared.`);
+	if (selected !== "Default") {
+		await clearProviderModelCache(context, [selected]);
+	}
+	vscode.window.showInformationMessage(`Copilot Bro API key for ${selected} cleared.`);
 }
 
 function getProviderChoices(): string[] {
@@ -156,6 +193,7 @@ function getProviderChoices(): string[] {
 	return [
 		"deepseek",
 		"zhipu",
+		"minimax",
 		"kimi",
 		"qwen"
 	];

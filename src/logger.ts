@@ -9,7 +9,7 @@ const LEVELS: Record<Exclude<LogLevel, "off">, number> = {
 };
 
 export class Logger {
-	private readonly channel = vscode.window.createOutputChannel("Extended Models");
+	private readonly channel = vscode.window.createOutputChannel("Copilot Bro");
 	private level: LogLevel = "info";
 
 	setLevel(level: LogLevel): void {

@@ -15,7 +15,16 @@ const COMMON_HINTS: ModelParameterHints = {
 const DEEPSEEK_HINTS: ModelParameterHints = {
 	...COMMON_HINTS,
 	temperature: { min: 0, max: 2, step: 0.1, recommended: 1 },
-	reasoningEffort: { options: ["low", "medium", "high", "max"], recommended: "high" },
+	maxOutputTokens: { min: 1, max: 393216, step: 1024, recommended: 32768 },
+	reasoningEffort: { options: ["high", "max"], recommended: "max" },
+	thinking: { options: ["enabled", "disabled"], recommended: "enabled" }
+};
+
+const ZHIPU_REASONING_HINTS: ModelParameterHints = {
+	...COMMON_HINTS,
+	temperature: { min: 0, max: 2, step: 0.1, recommended: 0.6 },
+	topP: { min: 0, max: 1, step: 0.05, recommended: 1 },
+	maxOutputTokens: { min: 1, max: 128000, step: 1024, recommended: 8192 },
 	thinking: { options: ["enabled", "disabled"], recommended: "enabled" }
 };
 
@@ -34,6 +43,14 @@ const QWEN_HINTS: ModelParameterHints = {
 	thinking: { options: ["enabled", "disabled"], recommended: "disabled" }
 };
 
+const MINIMAX_HINTS: ModelParameterHints = {
+	...COMMON_HINTS,
+	temperature: { min: 0.01, max: 1, step: 0.01, recommended: 1 },
+	topP: { min: 0, max: 1, step: 0.05, recommended: 1 },
+	maxOutputTokens: { min: 1, max: 128000, step: 1024, recommended: 8192 },
+	thinking: { options: ["enabled", "disabled"], recommended: "enabled" }
+};
+
 interface ModelSeed {
 	id: string;
 	displayName?: string;
@@ -41,6 +58,7 @@ interface ModelSeed {
 	contextLength?: number;
 	maxOutputTokens?: number;
 	vision?: boolean;
+	visionProxyModelId?: string | null;
 	temperature?: number | null;
 	topP?: number | null;
 	reasoningEffort?: string;
@@ -66,8 +84,8 @@ export const PROVIDER_CATALOG: readonly ProviderSeed[] = [
 		documentationUrl: "https://api-docs.deepseek.com/zh-cn/",
 		hints: DEEPSEEK_HINTS,
 		models: [
-			{ id: "deepseek-v4-pro", displayName: "DeepSeek v4 Pro", category: "Reasoning / Agent", contextLength: 1000000, maxOutputTokens: 8192, temperature: 1, topP: 1, reasoningEffort: "high", thinking: "enabled" },
-			{ id: "deepseek-v4-flash", displayName: "DeepSeek v4 Flash", category: "Fast / General", contextLength: 1000000, maxOutputTokens: 8192, temperature: 1, topP: 1, reasoningEffort: "high", thinking: "enabled" }
+			{ id: "deepseek-v4-pro", displayName: "DeepSeek v4 Pro", category: "Reasoning / Agent", contextLength: 1048576, maxOutputTokens: 32768, temperature: 1, topP: 1, reasoningEffort: "high", thinking: "enabled", visionProxyModelId: "" },
+			{ id: "deepseek-v4-flash", displayName: "DeepSeek v4 Flash", category: "Fast / General", contextLength: 1048576, maxOutputTokens: 32768, temperature: 1, topP: 1, reasoningEffort: "high", thinking: "enabled", visionProxyModelId: "" }
 		]
 	},
 	{
@@ -76,13 +94,35 @@ export const PROVIDER_CATALOG: readonly ProviderSeed[] = [
 		baseUrl: "https://open.bigmodel.cn/api/paas/v4",
 		documentationUrl: "https://docs.bigmodel.cn/cn/api/introduction",
 		hints: {
-			...COMMON_HINTS,
-			temperature: { min: 0, max: 2, step: 0.1, recommended: 0.6 },
-			maxOutputTokens: { min: 1, max: 128000, step: 1024, recommended: 8192 },
-			thinking: { options: ["enabled", "disabled"], recommended: "enabled" }
+			...ZHIPU_REASONING_HINTS
 		},
 		models: [
-			{ id: "glm-5.1", displayName: "GLM 5.1", category: "Flagship / Agent Coding", contextLength: 200000, maxOutputTokens: 8192, temperature: 0.6, topP: 1, thinking: "enabled" }
+			{ id: "glm-5.1", displayName: "GLM 5.1", category: "Flagship / Agent Coding", contextLength: 200000, maxOutputTokens: 128000, temperature: 0.6, topP: 1, thinking: "enabled" },
+			{ id: "glm-5v-turbo", displayName: "GLM 5V Turbo", category: "Vision / Multimodal", contextLength: 128000, maxOutputTokens: 8192, vision: true, temperature: 0.6, topP: 1, thinking: "disabled" },
+			{ id: "glm-4.6v", displayName: "GLM 4.6V", category: "Vision / Agent Coding", contextLength: 128000, maxOutputTokens: 8192, vision: true, temperature: 0.6, topP: 1, thinking: "disabled" },
+			{ id: "glm-4.5v", displayName: "GLM 4.5V", category: "Vision / Reasoning", contextLength: 128000, maxOutputTokens: 8192, vision: true, temperature: 0.6, topP: 1, thinking: "disabled" },
+			{ id: "glm-4.6", displayName: "GLM 4.6", category: "Agent Coding", contextLength: 200000, maxOutputTokens: 128000, temperature: 0.6, topP: 1, thinking: "enabled" },
+			{ id: "glm-4.5", displayName: "GLM 4.5", category: "Reasoning / Agent", contextLength: 128000, maxOutputTokens: 65536, temperature: 0.6, topP: 1, thinking: "enabled" },
+			{ id: "glm-4.5-air", displayName: "GLM 4.5 Air", category: "Fast Reasoning", contextLength: 128000, maxOutputTokens: 65536, temperature: 0.6, topP: 1, thinking: "enabled" },
+			{ id: "glm-4-plus", displayName: "GLM 4 Plus", category: "General", contextLength: 128000, maxOutputTokens: 8192, temperature: 0.6, topP: 1, thinking: "disabled" },
+			{ id: "glm-4-air", displayName: "GLM 4 Air", category: "Fast / General", contextLength: 128000, maxOutputTokens: 8192, temperature: 0.6, topP: 1, thinking: "disabled" },
+			{ id: "glm-4-flash", displayName: "GLM 4 Flash", category: "Cost Efficient", contextLength: 128000, maxOutputTokens: 8192, temperature: 0.6, topP: 1, thinking: "disabled" }
+		]
+	},
+	{
+		provider: "minimax",
+		providerDisplayName: "MiniMax",
+		baseUrl: "https://api.minimax.io/v1",
+		documentationUrl: "https://platform.minimax.io/docs/api-reference/text-openai-api",
+		hints: MINIMAX_HINTS,
+		models: [
+			{ id: "MiniMax-M2.7", displayName: "MiniMax M2.7", category: "Agentic / Reasoning", contextLength: 204800, maxOutputTokens: 128000, temperature: 1, topP: 1, thinking: "enabled", extraBody: { reasoning_split: true } },
+			{ id: "MiniMax-M2.7-highspeed", displayName: "MiniMax M2.7 Highspeed", category: "Fast Agentic / Reasoning", contextLength: 204800, maxOutputTokens: 128000, temperature: 1, topP: 1, thinking: "enabled", extraBody: { reasoning_split: true } },
+			{ id: "MiniMax-M2.5", displayName: "MiniMax M2.5", category: "Coding / Reasoning", contextLength: 204800, maxOutputTokens: 128000, temperature: 1, topP: 1, thinking: "enabled", extraBody: { reasoning_split: true } },
+			{ id: "MiniMax-M2.5-highspeed", displayName: "MiniMax M2.5 Highspeed", category: "Fast Coding / Reasoning", contextLength: 204800, maxOutputTokens: 128000, temperature: 1, topP: 1, thinking: "enabled", extraBody: { reasoning_split: true } },
+			{ id: "MiniMax-M2.1", displayName: "MiniMax M2.1", category: "Legacy Agentic / Reasoning", contextLength: 204800, maxOutputTokens: 128000, temperature: 1, topP: 1, thinking: "enabled", extraBody: { reasoning_split: true } },
+			{ id: "MiniMax-M2.1-highspeed", displayName: "MiniMax M2.1 Highspeed", category: "Legacy Fast Reasoning", contextLength: 204800, maxOutputTokens: 128000, temperature: 1, topP: 1, thinking: "enabled", extraBody: { reasoning_split: true } },
+			{ id: "MiniMax-M2", displayName: "MiniMax M2", category: "Agentic / Function Calling", contextLength: 204800, maxOutputTokens: 128000, temperature: 1, topP: 1, thinking: "enabled", extraBody: { reasoning_split: true } }
 		]
 	},
 	{
@@ -152,6 +192,7 @@ function createModel(provider: ProviderSeed, seed: ModelSeed): ModelConfig {
 		contextLength: seed.contextLength ?? DEFAULT_CONTEXT_LENGTH,
 		maxOutputTokens: seed.maxOutputTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
 		vision: seed.vision ?? false,
+		visionProxyModelId: seed.visionProxyModelId,
 		toolCalling: true,
 		temperature: seed.temperature ?? hints.temperature?.recommended,
 		topP: seed.topP ?? hints.topP?.recommended,

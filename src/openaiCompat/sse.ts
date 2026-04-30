@@ -10,6 +10,7 @@ interface ToolBuffer {
 export class OpenAIStreamParser {
 	private readonly toolBuffers = new Map<number, ToolBuffer>();
 	private readonly completedToolIndices = new Set<number>();
+	private readonly reasoningDetailBuffers = new Map<number, string>();
 	private xmlThinkingActive = false;
 	private xmlThinkingDetectionDone = false;
 	private thinkingId: string | undefined;
@@ -17,7 +18,8 @@ export class OpenAIStreamParser {
 	async parse(
 		body: ReadableStream<Uint8Array>,
 		onEvent: (event: StreamEvent) => void | Promise<void>,
-		token?: { readonly isCancellationRequested?: boolean }
+		token?: { readonly isCancellationRequested?: boolean },
+		onActivity?: () => void
 	): Promise<void> {
 		const reader = body.getReader();
 		const decoder = new TextDecoder();
@@ -35,16 +37,21 @@ export class OpenAIStreamParser {
 				}
 
 				buffer += decoder.decode(value, { stream: true });
+				onActivity?.();
 				const lines = buffer.split(/\r?\n/);
 				buffer = lines.pop() ?? "";
 
 				for (const line of lines) {
-					await this.processLine(line, onEvent);
+					if (await this.processLine(line, onEvent)) {
+						return;
+					}
 				}
 			}
 
 			if (buffer.trim()) {
-				await this.processLine(buffer, onEvent);
+				if (await this.processLine(buffer, onEvent)) {
+					return;
+				}
 			}
 			this.flushToolCalls(onEvent, false);
 		} finally {
@@ -52,19 +59,19 @@ export class OpenAIStreamParser {
 		}
 	}
 
-	private async processLine(line: string, onEvent: (event: StreamEvent) => void | Promise<void>): Promise<void> {
+	private async processLine(line: string, onEvent: (event: StreamEvent) => void | Promise<void>): Promise<boolean> {
 		const trimmed = line.trim();
 		if (!trimmed || trimmed.startsWith(":")) {
-			return;
+			return false;
 		}
 		if (!trimmed.startsWith("data:")) {
-			return;
+			return false;
 		}
 
 		const data = trimmed.slice(5).trim();
 		if (!data || data === "[DONE]") {
 			this.flushToolCalls(onEvent, false);
-			return;
+			return true;
 		}
 
 		let chunk: Record<string, unknown>;
@@ -78,23 +85,25 @@ export class OpenAIStreamParser {
 			});
 		}
 
-		await this.processChunk(chunk, onEvent);
+		return await this.processChunk(chunk, onEvent);
 	}
 
 	private async processChunk(
 		chunk: Record<string, unknown>,
 		onEvent: (event: StreamEvent) => void | Promise<void>
-	): Promise<void> {
-		const choice = getFirstChoice(chunk);
-		if (!choice) {
-			return;
-		}
-		const delta = asRecord(choice.delta);
-		if (!delta) {
-			return;
+	): Promise<boolean> {
+		const usage = asRecord(chunk.usage);
+		if (usage) {
+			await onEvent({ type: "usage", usage });
 		}
 
-		const thinkingText = extractThinkingText(choice, delta);
+		const choice = getFirstChoice(chunk);
+		if (!choice) {
+			return false;
+		}
+		const delta = asRecord(choice.delta) ?? {};
+
+		const thinkingText = this.extractThinkingText(choice, delta);
 		if (thinkingText) {
 			this.thinkingId ??= `thinking_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 			await onEvent({ type: "thinking", text: thinkingText, id: this.thinkingId });
@@ -108,7 +117,13 @@ export class OpenAIStreamParser {
 			}
 		}
 
-		const toolCalls = Array.isArray(delta.tool_calls) ? delta.tool_calls : [];
+		const message = asRecord(choice.message);
+		const rawToolCalls = Array.isArray(delta.tool_calls)
+			? delta.tool_calls
+			: Array.isArray(message?.tool_calls)
+				? message.tool_calls
+				: [];
+		const toolCalls = rawToolCalls;
 		for (const rawToolCall of toolCalls) {
 			const toolCall = asRecord(rawToolCall);
 			if (!toolCall) {
@@ -130,13 +145,18 @@ export class OpenAIStreamParser {
 				buffer.args += fn.arguments;
 			}
 			this.toolBuffers.set(index, buffer);
-			this.tryFlushToolCall(index, onEvent);
 		}
 
 		const finishReason = typeof choice.finish_reason === "string" ? choice.finish_reason : undefined;
-		if (finishReason === "tool_calls" || finishReason === "stop") {
+		if (finishReason === "tool_calls") {
 			this.flushToolCalls(onEvent, true);
+			return true;
 		}
+		if (finishReason === "stop") {
+			this.flushToolCalls(onEvent, false);
+			return true;
+		}
+		return false;
 	}
 
 	private async processXmlThinking(
@@ -185,23 +205,17 @@ export class OpenAIStreamParser {
 		return consumed;
 	}
 
-	private tryFlushToolCall(index: number, onEvent: (event: StreamEvent) => void | Promise<void>): void {
-		const buffer = this.toolBuffers.get(index);
-		if (!buffer?.name) {
-			return;
+	private extractThinkingText(choice: Record<string, unknown>, delta: Record<string, unknown>): string {
+		const details = delta.reasoning_details ?? choice.reasoning_details;
+		if (Array.isArray(details)) {
+			return details.map((item, index) => {
+				const text = extractReasoningDetail(asRecord(item));
+				const previous = this.reasoningDetailBuffers.get(index) ?? "";
+				this.reasoningDetailBuffers.set(index, text || previous);
+				return text.startsWith(previous) ? text.slice(previous.length) : text;
+			}).filter(Boolean).join("");
 		}
-		const parsed = parseToolArguments(buffer.args);
-		if (!parsed) {
-			return;
-		}
-		onEvent({
-			type: "tool_call",
-			id: buffer.id ?? `call_${Math.random().toString(36).slice(2, 10)}`,
-			name: buffer.name,
-			input: parsed
-		});
-		this.toolBuffers.delete(index);
-		this.completedToolIndices.add(index);
+		return extractScalarThinkingText(choice, delta);
 	}
 
 	private flushToolCalls(onEvent: (event: StreamEvent) => void | Promise<void>, throwOnInvalid: boolean): void {
@@ -253,14 +267,10 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 	return value && typeof value === "object" ? value as Record<string, unknown> : undefined;
 }
 
-function extractThinkingText(choice: Record<string, unknown>, delta: Record<string, unknown>): string {
-	const details = delta.reasoning_details ?? choice.reasoning_details;
-	if (Array.isArray(details)) {
-		return details.map((item) => extractReasoningDetail(asRecord(item))).filter(Boolean).join("");
-	}
-
+function extractScalarThinkingText(choice: Record<string, unknown>, delta: Record<string, unknown>): string {
+	const message = asRecord(choice.message);
 	for (const key of ["reasoning_content", "reasoning", "thinking"]) {
-		const value = delta[key] ?? choice[key];
+		const value = delta[key] ?? choice[key] ?? message?.[key];
 		if (typeof value === "string") {
 			return value;
 		}

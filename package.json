@@ -1,8 +1,8 @@
 {
-	"name": "extended-models-for-copilot",
-	"displayName": "Extended Models for Copilot",
-	"description": "Use OpenAI-compatible custom models such as DeepSeek v4 and GLM 5.1 in VS Code Copilot Chat.",
-	"version": "0.1.0",
+	"name": "copilot-bro",
+	"displayName": "Copilot Bro",
+	"description": "Use DeepSeek, Z.AI GLM, MiniMax, Kimi, Qwen, vision proxy, prompt presets, and OpenAI-compatible models in VS Code Copilot Chat.",
+	"version": "0.1.6",
 	"publisher": "Cloacah",
 	"icon": "icon.png",
 	"license": "MIT",
@@ -22,71 +22,105 @@
 		"chat",
 		"language-model",
 		"openai-compatible",
+		"byok",
+		"agent",
+		"agent-mode",
+		"tool-calling",
+		"vision",
+		"reasoning",
+		"thinking",
+		"prompt-presets",
 		"deepseek",
 		"glm",
-		"zhipu"
+		"zhipu",
+        "z.ai",
+        "minimax",
+        "kimi",
+        "qwen",
+        "moonshot",
+        "dashscope"
 	],
 	"activationEvents": [
 		"onStartupFinished"
-	],
-	"enabledApiProposals": [
-		"chatProvider",
-		"languageModelDataPart",
-		"languageModelThinkingPart"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"languageModelChatProviders": [
 			{
 				"vendor": "extendedModels",
-				"displayName": "Extended Models",
+				"displayName": "Copilot Bro",
 				"managementCommand": "extendedModels.manage"
 			}
 		],
 		"commands": [
 			{
 				"command": "extendedModels.manage",
-				"title": "Open Configuration",
-				"category": "Extended Models"
+				"title": "Open Model Settings",
+				"category": "Copilot Bro"
+			},
+			{
+				"command": "extendedModels.openModelSettings",
+				"title": "Open Model Settings",
+				"category": "Copilot Bro"
 			},
 			{
 				"command": "extendedModels.setApiKey",
 				"title": "Set Default API Key",
-				"category": "Extended Models"
+				"category": "Copilot Bro"
 			},
 			{
 				"command": "extendedModels.setProviderApiKey",
 				"title": "Set Provider API Key",
-				"category": "Extended Models"
+				"category": "Copilot Bro"
 			},
 			{
 				"command": "extendedModels.clearApiKey",
 				"title": "Clear API Key",
-				"category": "Extended Models"
+				"category": "Copilot Bro"
 			},
 			{
 				"command": "extendedModels.showOutput",
 				"title": "Show Diagnostics Output",
-				"category": "Extended Models"
+				"category": "Copilot Bro"
 			},
 			{
 				"command": "extendedModels.exportModels",
 				"title": "Export Model Configuration",
-				"category": "Extended Models"
+				"category": "Copilot Bro"
 			},
 			{
 				"command": "extendedModels.importModels",
 				"title": "Import Model Configuration",
-				"category": "Extended Models"
+				"category": "Copilot Bro"
+			},
+			{
+				"command": "extendedModels.refreshProviderModels",
+				"title": "Refresh Provider Models",
+				"category": "Copilot Bro"
+			},
+			{
+				"command": "extendedModels.selectPromptPreset",
+				"title": "Select Prompt Preset",
+				"category": "Copilot Bro"
+			},
+			{
+				"command": "extendedModels.openPromptPresetFolder",
+				"title": "Open Global Prompt Preset Folder",
+				"category": "Copilot Bro"
 			}
 		],
 		"configuration": {
-			"title": "Extended Models for Copilot",
+			"title": "Copilot Bro",
 			"properties": {
+				"extendedModels.openModelSettings": {
+					"type": "string",
+					"default": "Run command: Copilot Bro: Open Model Settings",
+					"markdownDescription": "Open the visual model configuration UI: [Copilot Bro: Open Model Settings](command:extendedModels.openModelSettings). This entry is intentionally visible in Settings as a direct shortcut."
+				},
 				"extendedModels.includeBuiltInPresets": {
 					"type": "boolean",
 					"default": true,
-					"description": "Show built-in DeepSeek v4 and GLM 5.1 presets in the Copilot model picker."
+					"description": "Show built-in DeepSeek, Zhipu / Z.AI, MiniMax, Kimi, and Qwen presets in the Copilot model picker."
 				},
 				"extendedModels.defaultBaseUrl": {
 					"type": "string",
@@ -121,6 +155,7 @@
 								"examples": [
 									"deepseek",
 									"zhipu",
+									"minimax",
 									"kimi",
 									"qwen",
 									"my-provider"
@@ -160,6 +195,14 @@
 								"type": "boolean",
 								"default": false,
 								"description": "Whether the model accepts image input."
+							},
+							"visionProxyModelId": {
+								"type": [
+									"string",
+									"null"
+								],
+								"default": "",
+								"description": "Optional model ID used to describe images before this model receives the request. Empty uses the global default for non-vision models; null disables proxying for this model."
 							},
 							"toolCalling": {
 								"type": "boolean",
@@ -286,11 +329,51 @@
 					},
 					"description": "Retry settings for retryable provider and network errors."
 				},
+				"extendedModels.visionProxy": {
+					"type": "object",
+					"default": {
+						"enabled": true,
+						"defaultModelId": "",
+						"prompt": "Describe the visual contents of each image in detail for a coding assistant. Include visible text, UI state, diagrams, errors, layout, colors, and any details needed to answer the user's request. Be factual and do not solve the task yourself."
+					},
+					"description": "Vision proxy settings. Non-vision models can use another image-capable model, including built-in Copilot models, to describe images before the current model continues.",
+					"properties": {
+						"enabled": {
+							"type": "boolean",
+							"default": true,
+							"description": "Enable the global vision proxy for models that do not have native vision input."
+						},
+						"defaultModelId": {
+							"type": "string",
+							"default": "",
+							"description": "Preferred vision-capable model ID. Leave empty to auto-pick an installed image-capable Copilot model."
+						},
+						"prompt": {
+							"type": "string",
+							"default": "Describe the visual contents of each image in detail for a coding assistant. Include visible text, UI state, diagrams, errors, layout, colors, and any details needed to answer the user's request. Be factual and do not solve the task yourself.",
+							"description": "Prompt sent to the vision proxy model when describing image attachments."
+						}
+					}
+				},
+				"extendedModels.promptPresets": {
+					"type": "object",
+					"default": {
+						"selectedId": ""
+					},
+					"description": "Prompt preset selection. Presets use *.copilot-bro.prompt.md files from built-in, global, or workspace folders.",
+					"properties": {
+						"selectedId": {
+							"type": "string",
+							"default": "",
+							"description": "Selected prompt preset ID. Use Copilot Bro: Select Prompt Preset to change it."
+						}
+					}
+				},
 				"extendedModels.requestTimeoutMs": {
 					"type": "number",
 					"default": 120000,
 					"minimum": 1000,
-					"description": "Request timeout in milliseconds."
+					"description": "Connection and stream idle timeout in milliseconds. Active streaming responses can run longer than this value."
 				},
 				"extendedModels.logLevel": {
 					"type": "string",
@@ -326,7 +409,7 @@
 		"package:vsix": "npm run package",
 		"build:vsix": "npm run package",
 		"release:vsix": "node scripts/release-vsix.mjs",
-		"install:vscode": "code --install-extension extended-models-for-copilot-0.1.0.vsix --force",
+		"install:vscode": "code --install-extension copilot-bro-0.1.6.vsix --force",
 		"publish:marketplace": "vsce publish"
 	},
 	"devDependencies": {

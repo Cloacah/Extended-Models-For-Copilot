@@ -21,7 +21,7 @@ export async function promptForApiKey(
 	const key = normalizedProvider ? providerSecretKey(normalizedProvider) : DEFAULT_KEY;
 	const title = normalizedProvider ? `API Key for ${normalizedProvider}` : "Default API Key";
 	const value = await vscode.window.showInputBox({
-		title: `Extended Models: ${title}`,
+		title: `Copilot Bro: ${title}`,
 		prompt: existing ? "Update API key. Leave empty to clear it." : "Enter API key. It will be stored in VS Code SecretStorage.",
 		ignoreFocusOut: true,
 		password: true
@@ -63,8 +63,8 @@ export async function setDefaultApiKey(secrets: vscode.SecretStorage): Promise<v
 	const existing = await secrets.get(DEFAULT_KEY);
 	const saved = await promptForApiKey(secrets, undefined, existing);
 	if (saved === "") {
-		vscode.window.showInformationMessage("Extended Models default API key cleared.");
+		vscode.window.showInformationMessage("Copilot Bro default API key cleared.");
 	} else if (saved) {
-		vscode.window.showInformationMessage("Extended Models default API key saved.");
+		vscode.window.showInformationMessage("Copilot Bro default API key saved.");
 	}
 }

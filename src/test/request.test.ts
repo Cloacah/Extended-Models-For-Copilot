@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildHeaders, buildRequestBody } from "../openaiCompat/request";
 import type { ModelConfig } from "../types";
+import type { ProvideLanguageModelChatResponseOptions } from "vscode";
 
 const model: ModelConfig = {
 	id: "deepseek-v4-pro",
@@ -21,20 +22,11 @@ const model: ModelConfig = {
 	editTools: []
 };
 
-test("buildRequestBody includes model options, tools, and extra body", () => {
+test("buildRequestBody includes model options and extra body", () => {
 	const body = buildRequestBody(
 		model,
 		[{ role: "user", content: "hello" }],
-		{
-			tools: [
-				{
-					name: "read_file",
-					description: "Read a file",
-					inputSchema: { type: "object" }
-				}
-			]
-		},
-		"read_file"
+		{} as unknown as ProvideLanguageModelChatResponseOptions
 	);
 
 	assert.equal(body.model, "deepseek-v4-pro");
@@ -44,8 +36,7 @@ test("buildRequestBody includes model options, tools, and extra body", () => {
 	assert.equal(body.reasoning_effort, "high");
 	assert.deepEqual(body.thinking, { type: "enabled" });
 	assert.equal(body.seed, 42);
-	assert.equal(body.tools?.[0].function.name, "read_file");
-	assert.deepEqual(body.tool_choice, { type: "function", function: { name: "read_file" } });
+	assert.equal(body.tools, undefined);
 });
 
 test("buildHeaders merges custom headers", () => {
@@ -60,9 +51,59 @@ test("Kimi uses auto tool choice because required is not supported", () => {
 	const body = buildRequestBody(
 		{ ...model, provider: "kimi", id: "kimi-k2.6" },
 		[{ role: "user", content: "hello" }],
-		{ tools: [{ name: "read_file", description: "Read a file", inputSchema: { type: "object" } }] },
+		{ tools: [{ name: "read_file", description: "Read a file", inputSchema: { type: "object" } }] } as unknown as ProvideLanguageModelChatResponseOptions,
 		"read_file"
 	);
 
 	assert.equal(body.tool_choice, "auto");
+});
+
+test("Kimi thinking requests keep all reasoning for replay", () => {
+	const body = buildRequestBody(
+		{ ...model, provider: "kimi", id: "kimi-k2.6", baseUrl: "https://api.moonshot.ai/v1" },
+		[{ role: "user", content: "hello" }],
+		{} as unknown as ProvideLanguageModelChatResponseOptions
+	);
+
+	assert.deepEqual(body.thinking, { type: "enabled", keep: "all" });
+});
+
+test("Qwen presets do not send unsupported generic thinking object", () => {
+	const body = buildRequestBody(
+		{ ...model, provider: "qwen", id: "qwq-plus", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+		[{ role: "user", content: "hello" }],
+		{} as unknown as ProvideLanguageModelChatResponseOptions
+	);
+
+	assert.equal(body.thinking, undefined);
+});
+
+test("required tool mode with multiple tools uses OpenAI required tool choice", () => {
+	const body = buildRequestBody(
+		model,
+		[{ role: "user", content: "hello" }],
+		{
+			toolMode: 2,
+			tools: [
+				{ name: "read_file", description: "Read a file", inputSchema: { type: "object" } },
+				{ name: "list_files", description: "List files", inputSchema: { type: "object" } }
+			]
+		} as unknown as ProvideLanguageModelChatResponseOptions,
+		"required"
+	);
+
+	assert.equal(body.tool_choice, "required");
+});
+
+test("DeepSeek tool requests keep thinking enabled when configured", () => {
+	const body = buildRequestBody(
+		model,
+		[{ role: "user", content: "hello" }],
+		{ tools: [{ name: "read_file", description: "Read a file", inputSchema: { type: "object" } }] } as unknown as ProvideLanguageModelChatResponseOptions,
+		"read_file"
+	);
+
+	assert.deepEqual(body.thinking, { type: "enabled" });
+	assert.equal(body.reasoning_effort, "high");
+	assert.deepEqual(body.tool_choice, { type: "function", function: { name: "read_file" } });
 });

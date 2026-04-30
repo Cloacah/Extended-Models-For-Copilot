@@ -33,6 +33,89 @@ test("parseToolArguments rejects non-object JSON", () => {
 	assert.deepEqual(parseToolArguments("{\"ok\":true}"), { ok: true });
 });
 
+test("OpenAIStreamParser returns after tool_calls finish without waiting for DONE", async () => {
+	const stream = toStream([
+		`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, id: "call-early", function: { name: "read_file", arguments: "{\"path\"" } }] } }] })}\n\n`,
+		`data: ${JSON.stringify({ choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: ":\"a.ts\"}" } }] }, finish_reason: "tool_calls" }] })}\n\n`,
+		"data: this-would-fail-if-parser-kept-reading\n\n"
+	]);
+	const events: StreamEvent[] = [];
+	const parser = new OpenAIStreamParser();
+
+	await parser.parse(stream, (event) => {
+		events.push(event);
+	});
+
+	assert.deepEqual(events, [
+		{
+			type: "tool_call",
+			id: "call-early",
+			name: "read_file",
+			input: { path: "a.ts" }
+		}
+	]);
+});
+
+test("OpenAIStreamParser reads reasoning from choice.message tool-call chunks", async () => {
+	const stream = toStream([
+		`data: ${JSON.stringify({
+			choices: [
+				{
+					message: {
+						reasoning_content: "message reasoning",
+						tool_calls: [
+							{
+								id: "call-message",
+								function: { name: "read_file", arguments: "{\"path\":\"a.ts\"}" }
+							}
+						]
+					},
+					finish_reason: "tool_calls"
+				}
+			]
+		})}\n\n`
+	]);
+	const events: StreamEvent[] = [];
+	const parser = new OpenAIStreamParser();
+
+	await parser.parse(stream, (event) => {
+		events.push(event);
+	});
+
+	const thinkingEvent = events[0] as Extract<StreamEvent, { type: "thinking" }>;
+	assert.equal(thinkingEvent.type, "thinking");
+	assert.deepEqual(events, [
+		{ type: "thinking", text: "message reasoning", id: thinkingEvent.id },
+		{
+			type: "tool_call",
+			id: "call-message",
+			name: "read_file",
+			input: { path: "a.ts" }
+		}
+	]);
+});
+
+test("OpenAIStreamParser emits usage and de-duplicates cumulative reasoning details", async () => {
+	const stream = toStream([
+		`data: ${JSON.stringify({ choices: [{ delta: { reasoning_details: [{ text: "think" }] } }] })}\n\n`,
+		`data: ${JSON.stringify({ choices: [{ delta: { reasoning_details: [{ text: "thinking" }] } }] })}\n\n`,
+		`data: ${JSON.stringify({ choices: [{ delta: { content: "done" } }] })}\n\n`,
+		`data: ${JSON.stringify({ choices: [], usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 } })}\n\n`,
+		"data: [DONE]\n\n"
+	]);
+	const events: StreamEvent[] = [];
+	const parser = new OpenAIStreamParser();
+
+	await parser.parse(stream, (event) => {
+		events.push(event);
+	});
+
+	assert.deepEqual(events.map((event) => event.type), ["thinking", "thinking", "text", "usage"]);
+	assert.equal((events[0] as Extract<StreamEvent, { type: "thinking" }>).text, "think");
+	assert.equal((events[1] as Extract<StreamEvent, { type: "thinking" }>).text, "ing");
+	assert.equal((events[3] as Extract<StreamEvent, { type: "usage" }>).usage.total_tokens, 12);
+});
+
 function toStream(chunks: string[]): ReadableStream<Uint8Array> {
 	const encoder = new TextEncoder();
 	return new ReadableStream<Uint8Array>({

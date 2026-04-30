@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#1e1e1e"/>
+  <rect x="48" y="44" width="864" height="452" rx="12" fill="#252526" stroke="#3c3c3c"/>
+  <text x="80" y="92" fill="#ffffff" font-family="Segoe UI, Arial" font-size="30" font-weight="700">Copilot Bro Model Settings</text>
+  <rect x="80" y="126" width="800" height="72" rx="8" fill="#2d2d30" stroke="#454545"/>
+  <text x="104" y="158" fill="#d4d4d4" font-family="Segoe UI, Arial" font-size="17">Provider: DeepSeek    Model: DeepSeek v4 Pro    API Key: set</text>
+  <text x="104" y="184" fill="#9cdcfe" font-family="Segoe UI, Arial" font-size="15">Temperature, thinking, reasoning effort, vision proxy, and tool calling are editable here.</text>
+  <rect x="80" y="226" width="374" height="198" rx="8" fill="#2d2d30" stroke="#454545"/>
+  <text x="104" y="262" fill="#ffffff" font-family="Segoe UI, Arial" font-size="22" font-weight="700">Vision Proxy</text>
+  <text x="104" y="296" fill="#d4d4d4" font-family="Segoe UI, Arial" font-size="16">Use a Copilot vision model to describe images</text>
+  <text x="104" y="324" fill="#d4d4d4" font-family="Segoe UI, Arial" font-size="16">before sending text to the selected model.</text>
+  <rect x="104" y="354" width="156" height="38" rx="4" fill="#0e639c"/>
+  <text x="126" y="379" fill="#ffffff" font-family="Segoe UI, Arial" font-size="15" font-weight="700">Save Settings</text>
+  <rect x="506" y="226" width="374" height="198" rx="8" fill="#2d2d30" stroke="#454545"/>
+  <text x="530" y="262" fill="#ffffff" font-family="Segoe UI, Arial" font-size="22" font-weight="700">Prompt Presets</text>
+  <text x="530" y="296" fill="#d4d4d4" font-family="Segoe UI, Arial" font-size="16">Choose *.copilot-bro.prompt.md files</text>
+  <text x="530" y="324" fill="#d4d4d4" font-family="Segoe UI, Arial" font-size="16">from built-in, global, or workspace folders.</text>
+  <rect x="530" y="354" width="162" height="38" rx="4" fill="#0e639c"/>
+  <text x="552" y="379" fill="#ffffff" font-family="Segoe UI, Arial" font-size="15" font-weight="700">Select Preset</text>
+</svg>
